@@ -1,9 +1,7 @@
 #! /usr/local/bin/ruby
 
-require 'net/http'
-require './thread-pool.rb'
-
-Net::HTTP::read_timeout = 2.0
+require 'open-uri'
+require './thread-pool.rb' # from http://burgestrand.se/code/ruby-thread-pool/
 
 @headerRxs = [Regexp.new('server', Regexp::IGNORECASE),
               Regexp.new('x-powered-by', Regexp::IGNORECASE)]
@@ -16,26 +14,24 @@ Net::HTTP::read_timeout = 2.0
 
 def survey_site(website, name, count)
   printf "%5d. %-30s  %s\n", count, name, website
-  uri = URI(website)
   begin
-    res = Net::HTTP.get_response(uri)
+    http = open(website, 'r', :read_timeout => 5.0, :redirect => true)
   rescue Exception => e
     printf "Timeout Error (%s): %s\n", e.to_s, website
     return
   end
 
-  if [200,301,302].none?{|code| code == res.code.to_i}
-    puts "ERROR: couldn't query #{website} (#{name})"
+  if [200,301,302].none?{|code| code == http.status[0].to_i}
+    puts "ERROR: couldn't query #{website} (#{name}) - status was " + http.status.join(' ')
     return
   end
 
-  res.header.each_header {|hkey, hval|
+  http.meta.each {|hkey, hval|
     saveHeader = false
     if @headerRxs.none? {|re| re =~ hkey}  # ignore most headers
       next
     end
 
-    #puts "I see header #{hkey}"
     if not @headers.has_key?(hkey)
       @headers[hkey] = {}
     end
@@ -50,9 +46,6 @@ end
 sites = {}    # key is a URL, value is company name
 csvFile = File.open('fortune1000_companies.csv', 'r')
 csvFile.each { |line|
-  if line =~ /^b/i
-    break
-  end
   next if line =~ /^\s*#/
   ary = line.split("\t")
   name= ary[0]
@@ -64,7 +57,7 @@ csvFile.close
 $stdout.sync = true
 $stderr.sync = true
 
-pool = Pool.new(20)
+pool = Pool.new(10)
 @count  = 1
 sites.each_pair{|website,name|
   pool.schedule {
