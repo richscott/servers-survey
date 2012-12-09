@@ -3,9 +3,9 @@
 require 'net/http'
 require 'threadpool'
 
+@headerRxs = [Regexp.new('server', Regexp::IGNORECASE),
+              Regexp.new('x-powered-by', Regexp::IGNORECASE)]
 
-@scanHeaders = ['server', 'x-powered-by']
-#
 # @headers should look like:
 #  {'server': { 'apache': 100, 'IIS6': 80 },
 #   'x-powered-by': {'foo': 80, 'bar': 43}
@@ -27,6 +27,7 @@ csvFile.each { |line|
 csvFile.close
 
 def survey_site(website, name)
+  printf "%-30s  %s\n", name, website
   uri = URI(website)
   begin
     res = Net::HTTP.get_response(uri)
@@ -35,25 +36,27 @@ def survey_site(website, name)
     return
   end
 
-  if [200,301,302].include?(res.code.to_i)
-    printf "%-30s  %s\n", name, website
-    res.header.each_header {|hkey, hval|
-      if not @scanHeaders.include?(hkey)  # ignore most headers
-        return
-      end
-
-      if not @headers.has_key?(hkey)
-        @headers[hkey] = {}
-      end
-      if @headers[hkey].has_key?(hval)
-        @headers[hkey][hval] += 1
-      else
-        @headers[hkey][hval] = 1
-      end
-    }
-  else
-    puts name + "   " + website  + '  ERROR: couldnt query site'
+  if [200,301,302].none?{|code| code == res.code.to_i}
+    puts "ERROR: couldn't query #{website} (#{name})"
+    return
   end
+
+  res.header.each_header {|hkey, hval|
+    saveHeader = false
+    if @headerRxs.none? {|re| re =~ hkey}  # ignore most headers
+      next
+    end
+
+    #puts "I see header #{hkey}"
+    if not @headers.has_key?(hkey)
+      @headers[hkey] = {}
+    end
+    if @headers[hkey].has_key?(hval)
+      @headers[hkey][hval] += 1
+    else
+      @headers[hkey][hval] = 1
+    end
+  }
 end
 
 count  = 0
@@ -64,12 +67,11 @@ sites.each_pair{|website,name|
     break
   end
 }
-puts ""
 
 @headers.keys.sort.each { |header|
-  puts "HEADER: " + header
+  puts "\nHEADER: " + header
   headerValues = @headers[header]
-  headerValues.keys.each{|headerVal|
+  headerValues.keys.sort.each{|headerVal|
     printf "%5d  %s\n", headerValues[headerVal].to_s, headerVal
   }
 }
