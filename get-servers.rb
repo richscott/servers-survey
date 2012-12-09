@@ -1,6 +1,7 @@
 #! /usr/local/bin/ruby
 
 require 'net/http'
+require 'threadpool'
 
 csvFile = File.open('fortune1000_companies.csv', 'r')
 
@@ -16,13 +17,16 @@ count  = 0
 $stdout.sync = true
 $stderr.sync = true
 
+sites = {}    # key is a URL, value is company name
 csvFile.each { |line|
   next if line =~ /^\s*#/
-
   ary = line.split("\t")
   name= ary[0]
   website = ary[6]
+  sites[website] = name
+}
 
+sites.each_pair{|website,name|
   uri = URI(website)
   begin
     res = Net::HTTP.get_response(uri)
