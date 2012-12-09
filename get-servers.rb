@@ -1,7 +1,9 @@
 #! /usr/local/bin/ruby
 
 require 'net/http'
-require 'threadpool'
+require './thread-pool.rb'
+
+Net::HTTP::read_timeout = 2.0
 
 @headerRxs = [Regexp.new('server', Regexp::IGNORECASE),
               Regexp.new('x-powered-by', Regexp::IGNORECASE)]
@@ -48,6 +50,9 @@ end
 sites = {}    # key is a URL, value is company name
 csvFile = File.open('fortune1000_companies.csv', 'r')
 csvFile.each { |line|
+  if line =~ /^b/i
+    break
+  end
   next if line =~ /^\s*#/
   ary = line.split("\t")
   name= ary[0]
@@ -59,18 +64,16 @@ csvFile.close
 $stdout.sync = true
 $stderr.sync = true
 
-pool = ThreadPool.new(10)
-
-count  = 1
+pool = Pool.new(20)
+@count  = 1
 sites.each_pair{|website,name|
-  pool.process{
-    survey_site(website, name, count)
-    count += 1
+  pool.schedule {
+    survey_site(website, name, @count)
+    @count += 1
   }
 }
 
-$stderr.puts "Press <RETURN> for results..."
-gets
+pool.shutdown
 
 @headers.keys.sort.each { |header|
   puts "\nHEADER: " + header
@@ -79,3 +82,4 @@ gets
     printf "%5d  %s\n", headerValues[headerVal].to_s, headerVal
   }
 }
+#at_exit { pool.shutdown }
