@@ -12,22 +12,8 @@ require 'threadpool'
 #  }
 @headers = {}
 
-$stdout.sync = true
-$stderr.sync = true
-
-sites = {}    # key is a URL, value is company name
-csvFile = File.open('fortune1000_companies.csv', 'r')
-csvFile.each { |line|
-  next if line =~ /^\s*#/
-  ary = line.split("\t")
-  name= ary[0]
-  website = ary[6]
-  sites[website] = name
-}
-csvFile.close
-
-def survey_site(website, name)
-  printf "%-30s  %s\n", name, website
+def survey_site(website, name, count)
+  printf "%5d. %-30s  %s\n", count, name, website
   uri = URI(website)
   begin
     res = Net::HTTP.get_response(uri)
@@ -59,14 +45,32 @@ def survey_site(website, name)
   }
 end
 
-count  = 0
-sites.each_pair{|website,name|
-  survey_site(website, name)
-  count += 1
-  if count == 20
-    break
-  end
+sites = {}    # key is a URL, value is company name
+csvFile = File.open('fortune1000_companies.csv', 'r')
+csvFile.each { |line|
+  next if line =~ /^\s*#/
+  ary = line.split("\t")
+  name= ary[0]
+  website = ary[6]
+  sites[website] = name
 }
+csvFile.close
+
+$stdout.sync = true
+$stderr.sync = true
+
+pool = ThreadPool.new(10)
+
+count  = 1
+sites.each_pair{|website,name|
+  pool.process{
+    survey_site(website, name, count)
+    count += 1
+  }
+}
+
+$stderr.puts "Press <RETURN> for results..."
+gets
 
 @headers.keys.sort.each { |header|
   puts "\nHEADER: " + header
