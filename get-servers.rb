@@ -17,7 +17,7 @@ def survey_site(website, name, count)
   begin
     http = open(website, 'r', :read_timeout => 5.0, :redirect => true)
   rescue Exception => e
-    printf "Timeout Error (%s): %s\n", e.to_s, website
+    printf "Timeout Error for %s (%s)\n", website, e.to_s
     return
   end
 
@@ -27,7 +27,6 @@ def survey_site(website, name, count)
   end
 
   http.meta.each {|hkey, hval|
-    saveHeader = false
     if @headerRxs.none? {|re| re =~ hkey}  # ignore most headers
       next
     end
