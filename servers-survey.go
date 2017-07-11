@@ -1,22 +1,30 @@
 package main
 
 import (
-  "bufio"
   "encoding/csv"
   "fmt"
+  "io"
   "log"
+  "net/http"
   "os"
 )
 
-// Here's the worker, of which we'll run several concurrent instances.
-// These workers will receive work on the `jobs` channel and send the
-// corresponding results on `results`. We'll sleep a second per job to
-// simulate an expensive task.
-func surveySite(id int, jobs <-chan int, results chan<- int) {
-	for j := range jobs {
-		fmt.Println("surveySite", id, "processing job", j)
-		results <- j * 2
-	}
+func surveySite(siteDomain string, results chan<- string) {
+  serverSoftware := "<unknown>"
+
+  resp, err := http.Get(fmt.Sprintf("http://%s", siteDomain))
+  if err != nil {
+    log.Print(err)
+    results <- serverSoftware
+    return
+  }
+  defer resp.Body.Close()
+
+  if len(resp.Header.Get("Server")) > 0 {
+    serverSoftware = resp.Header.Get("Server")
+  }
+  fmt.Printf("%s -> %s\n", siteDomain, serverSoftware)
+  results <- serverSoftware
 }
 
 func main() {
@@ -26,35 +34,29 @@ func main() {
   }
   defer siteListFile.Close()
 
-  scanner := bufio.NewScanner(siteListFile)
-  for scanner.Scan() {
-    lineStr := scanner.Text()
-    fmt.Println(lineStr)
+	sites := make(map[string]string)
+
+	serverChan := make(chan string)
+
+  r := csv.NewReader(siteListFile)
+
+  for {
+    record, err := r.Read()
+    if err == io.EOF {
+      break
+    }
+    if err != nil {
+      log.Fatal(err)
+    }
+    siteDomain := record[2]
+
+    go surveySite(siteDomain, serverChan)
+    serverSoftware := <-serverChan
+
+    sites[siteDomain] = serverSoftware
   }
 
-/*
-
-  // In order to use our pool of surveySites we need to send them work and
-  // collect their results. We make 2 channels for this.
-	jobs := make(chan int, 100)
-	results := make(chan int, 100)
-
-	// This starts up 3 surveySites, initially blocked because there are no
-  // jobs yet.
-	for w := 1; w <= 3; w++ {
-		go surveySite(w, jobs, results)
-	}
-
-	// Here we send 9 `jobs` and then `close` that channel to indicate
-  // that's all the work we have.
-	for j := 1; j <= 9; j++ {
-		jobs <- j
-	}
-	close(jobs)
-
-	// Finally we collect all the results of the work.
-	for a := 1; a <= 9; a++ {
-		<-results
-	}
-*/
+  //for site, software := range sites {
+  //  fmt.Printf("%s -> %s\n", site, software)
+  //}
 }
