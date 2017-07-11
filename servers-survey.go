@@ -19,7 +19,8 @@ func surveyWorker(id int, siteJobs <-chan string, results chan<- surveyResult) {
 
 	for hostname := range siteJobs {
 		fmt.Printf("Worker %3d = surveying %s\n", id, hostname)
-    // TODO set an aggressive short timeout on this
+
+		// TODO set an aggressive short timeout on this
 		resp, err := http.Get(fmt.Sprintf("http://%s", hostname))
 		if err != nil {
 			log.Print(err)
@@ -60,7 +61,7 @@ func main() {
 	jobs := make(chan string, len(sites))
 	results := make(chan surveyResult, len(sites))
 
-	// Start up the pool of workers (just 5 right now).
+	// Start up the pool of workers.
 	// They will block until they have something to do,
 	// which arrives to them via the jobs channel.
 	for w := 1; w <= 50; w++ {
@@ -79,15 +80,15 @@ func main() {
 	serverCount := make(map[string]int)
 
 	for _, software := range siteServer {
-    if count, exists := serverCount[software]; exists {
-      serverCount[software] = count + 1
-    } else {
-      serverCount[software] = 1
-    }
+		if count, exists := serverCount[software]; exists {
+			serverCount[software] = count + 1
+		} else {
+			serverCount[software] = 1
+		}
 	}
 
-  for software, count := range serverCount {
-    fmt.Printf("%3d  %-50s\n", count, software)
-  }
+	for software, count := range serverCount {
+		fmt.Printf("%3d  %-50s\n", count, software)
+	}
 
 }
