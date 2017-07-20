@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -18,15 +20,14 @@ type surveyResult struct {
 func surveyWorker(id int, siteJobs <-chan string, results chan<- surveyResult) {
 	serverSW := "<unknown>"
 
-	timeout := time.Duration(5 * time.Second)
+	timeout := time.Duration(3 * time.Second)
 	httpClient := http.Client{
 		Timeout: timeout,
 	}
 
 	for hostname := range siteJobs {
-		// fmt.Printf("Worker %3d = surveying %s\n", id, hostname)
+		fmt.Printf("Worker %3d = surveying %s\n", id, hostname)
 
-		// TODO set an aggressive short timeout on this
 		resp, err := httpClient.Get(fmt.Sprintf("http://%s", hostname))
 		if err != nil {
 			log.Print(err)
@@ -42,8 +43,31 @@ func surveyWorker(id int, siteJobs <-chan string, results chan<- surveyResult) {
 	}
 }
 
-func main() {
-	siteListFile, err := os.Open("fortune500-2014.csv")
+func readTabDelimList(tabListFile string) []string {
+
+	file, err := os.Open(tabListFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	sites := make([]string, 0)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		siteDomain := strings.Split(scanner.Text(), "\t")[6]
+		sites = append(sites, siteDomain)
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return sites
+}
+
+func readCSVlist(csvFile string) []string {
+	siteListFile, err := os.Open(csvFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -62,6 +86,13 @@ func main() {
 		siteDomain := record[2]
 		sites = append(sites, siteDomain)
 	}
+
+	return sites
+}
+
+func main() {
+	// sites := readCSVlist("fortune500-2014.csv")
+	sites := readTabDelimList("fortune1000_companies.csv")
 
 	siteServer := make(map[string]string)
 	jobs := make(chan string, len(sites))
