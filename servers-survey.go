@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 type surveyResult struct {
@@ -17,11 +18,16 @@ type surveyResult struct {
 func surveyWorker(id int, siteJobs <-chan string, results chan<- surveyResult) {
 	serverSW := "<unknown>"
 
+	timeout := time.Duration(5 * time.Second)
+	httpClient := http.Client{
+		Timeout: timeout,
+	}
+
 	for hostname := range siteJobs {
-		fmt.Printf("Worker %3d = surveying %s\n", id, hostname)
+		// fmt.Printf("Worker %3d = surveying %s\n", id, hostname)
 
 		// TODO set an aggressive short timeout on this
-		resp, err := http.Get(fmt.Sprintf("http://%s", hostname))
+		resp, err := httpClient.Get(fmt.Sprintf("http://%s", hostname))
 		if err != nil {
 			log.Print(err)
 			results <- surveyResult{site: hostname, serverSoftware: serverSW}
@@ -72,7 +78,7 @@ func main() {
 		jobs <- site
 	}
 
-	for n := 1; n <= (len(sites) - 10); n++ {
+	for n := 1; n <= len(sites); n++ {
 		res := <-results
 		siteServer[res.site] = res.serverSoftware
 	}
