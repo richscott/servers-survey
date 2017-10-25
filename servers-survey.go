@@ -17,22 +17,23 @@ type surveyResult struct {
 	serverSoftware string
 }
 
+var surveyNumber = 0
+
 func surveyWorker(id int, siteJobs <-chan string, results chan<- surveyResult) {
 	serverSW := "<unknown>"
 
-	timeout := time.Duration(3 * time.Second)
-	httpClient := http.Client{
-		Timeout: timeout,
-	}
+	timeout := time.Duration(2 * time.Second)
+	httpClient := http.Client{Timeout: timeout}
 
 	for hostname := range siteJobs {
-		fmt.Printf("Worker %3d = surveying %s\n", id, hostname)
+		surveyNumber += 1
+		fmt.Printf("Worker %3d survey %3d: surveying %s\n", id, surveyNumber, hostname)
 
 		resp, err := httpClient.Get(fmt.Sprintf("http://%s", hostname))
 		if err != nil {
 			log.Print(err)
 			results <- surveyResult{site: hostname, serverSoftware: serverSW}
-			return
+			continue
 		}
 		defer resp.Body.Close()
 
@@ -55,8 +56,10 @@ func readTabDelimList(tabListFile string) []string {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		siteDomain := strings.Split(scanner.Text(), "\t")[6]
-		sites = append(sites, siteDomain)
+		if !strings.HasPrefix(scanner.Text(), "#") {
+			siteDomain := strings.Split(scanner.Text(), "\t")[6]
+			sites = append(sites, siteDomain)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -92,21 +95,20 @@ func readCSVlist(csvFile string) []string {
 
 func main() {
 	// sites := readCSVlist("fortune500-2014.csv")
-	sites := readTabDelimList("fortune1000_companies.csv")
+	sites := readTabDelimList("fortune1000_companies.tab")
 
 	siteServer := make(map[string]string)
 	jobs := make(chan string, len(sites))
 	results := make(chan surveyResult, len(sites))
 
-	// Start up the pool of workers.
-	// They will block until they have something to do,
-	// which arrives to them via the jobs channel.
-	for w := 1; w <= 50; w++ {
-		go surveyWorker(w, jobs, results)
-	}
-
 	for _, site := range sites {
 		jobs <- site
+	}
+
+	// Start up the pool of workers. They will block until they have
+	// something to do, which arrives to them via the jobs channel.
+	for w := 1; w <= 30; w++ {
+		go surveyWorker(w, jobs, results)
 	}
 
 	for n := 1; n <= len(sites); n++ {
