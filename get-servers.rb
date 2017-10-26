@@ -15,7 +15,7 @@ require './thread-pool.rb' # from http://burgestrand.se/code/ruby-thread-pool/
 def survey_site(website, name, count)
   printf "%5d. %-30s  %s\n", count, name, website
   begin
-    http = open(website, 'r', :read_timeout => 5.0, :redirect => true)
+    http = open("http://#{website}", 'r', :read_timeout => 2.0, :redirect => true)
   rescue Exception => e
     printf "Timeout Error for %s (%s)\n", website, e.to_s
     return
@@ -43,20 +43,20 @@ def survey_site(website, name, count)
 end
 
 sites = {}    # key is a URL, value is company name
-csvFile = File.open('fortune1000_companies.csv', 'r')
-csvFile.each { |line|
+tabFile = File.open('fortune1000_companies.tab', 'r')
+tabFile.each { |line|
   next if line =~ /^\s*#/
   ary = line.split("\t")
   name= ary[0]
   website = ary[6]
   sites[website] = name
 }
-csvFile.close
+tabFile.close
 
 $stdout.sync = true
 $stderr.sync = true
 
-pool = Pool.new(10)
+pool = Pool.new(30)
 @count  = 1
 sites.each_pair{|website,name|
   pool.schedule {

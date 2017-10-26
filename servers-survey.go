@@ -27,7 +27,7 @@ func surveyWorker(id int, siteJobs <-chan string, results chan<- surveyResult) {
 
 	for hostname := range siteJobs {
 		surveyNumber += 1
-		fmt.Printf("Worker %3d survey %3d: surveying %s\n", id, surveyNumber, hostname)
+		fmt.Printf("%3d (worker %2d): %s\n", surveyNumber, id, hostname)
 
 		resp, err := httpClient.Get(fmt.Sprintf("http://%s", hostname))
 		if err != nil {
