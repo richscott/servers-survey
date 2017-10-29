@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -22,7 +23,7 @@ var surveyNumber = 0
 func surveyWorker(id int, siteJobs <-chan string, results chan<- surveyResult) {
 	serverSW := "<unknown>"
 
-	timeout := time.Duration(2 * time.Second)
+	timeout := time.Duration(3 * time.Second)
 	httpClient := http.Client{Timeout: timeout}
 
 	for hostname := range siteJobs {
@@ -117,17 +118,21 @@ func main() {
 	}
 
 	serverCount := make(map[string]int)
+	softwareVersions := make([]string, 0)
 
 	for _, software := range siteServer {
 		if count, exists := serverCount[software]; exists {
 			serverCount[software] = count + 1
 		} else {
 			serverCount[software] = 1
+			softwareVersions = append(softwareVersions, software)
 		}
 	}
 
-	for software, count := range serverCount {
-		fmt.Printf("%3d  %-50s\n", count, software)
-	}
+	sort.Strings(softwareVersions)
 
+	fmt.Printf("\n\n")
+	for _, software := range softwareVersions {
+		fmt.Printf("%3d  %-50s\n", serverCount[software], software)
+	}
 }
