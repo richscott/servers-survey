@@ -18,6 +18,8 @@ type surveyResult struct {
 	serverSoftware string
 }
 
+const workerPoolSize = 30
+
 var surveyNumber = 0
 
 func surveyWorker(id int, siteJobs <-chan string, results chan<- surveyResult) {
@@ -108,7 +110,7 @@ func main() {
 
 	// Start up the pool of workers. They will block until they have
 	// something to do, which arrives to them via the jobs channel.
-	for w := 1; w <= 30; w++ {
+	for w := 1; w <= workerPoolSize; w++ {
 		go surveyWorker(w, jobs, results)
 	}
 
