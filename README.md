@@ -20,3 +20,9 @@ $ go build servers-survey.go
 
 $ ./servers-survey
 ```
+
+The list of web-site domains is read from `fortune1000_companies.tab`.
+
+The surveying is done by a pool of concurrent goroutines - currently set to
+size 30 - change `workerPoolSize` up or down as appropriate for your network
+connectivity.
